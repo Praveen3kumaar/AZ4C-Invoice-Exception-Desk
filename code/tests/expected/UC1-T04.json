@@ -1,0 +1,16 @@
+{
+  "case_id": "UC1-T04",
+  "decision": "hold",
+  "reason_code": [
+    "MISSING_GRN"
+  ],
+  "amount": {
+    "value": 4778371.31,
+    "tolerance": 1.0
+  },
+  "must_cite": [
+    "INV-20306",
+    "PO-7420"
+  ],
+  "needs_human": true
+}

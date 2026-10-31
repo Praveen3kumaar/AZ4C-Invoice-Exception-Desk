@@ -1,0 +1,16 @@
+{
+  "case_id": "UC1-T03",
+  "decision": "escalate",
+  "reason_code": [
+    "DUPLICATE"
+  ],
+  "amount": {
+    "value": 1027808.65,
+    "tolerance": 1.0
+  },
+  "must_cite": [
+    "INV-20007",
+    "PAY-9222"
+  ],
+  "needs_human": true
+}

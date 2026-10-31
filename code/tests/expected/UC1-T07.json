@@ -1,0 +1,19 @@
+{
+  "case_id": "UC1-T07",
+  "decision": "escalate",
+  "reason_code": [
+    "DUPLICATE"
+  ],
+  "amount": {
+    "value": 8323716.39,
+    "tolerance": 1.0
+  },
+  "must_cite": [
+    "INV-20541",
+    "PAY-9291"
+  ],
+  "needs_human": true,
+  "other_reasons": [
+    "BANK_CHANGE_RISK"
+  ]
+}

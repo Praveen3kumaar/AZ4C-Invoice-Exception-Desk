@@ -1,0 +1,19 @@
+{
+  "case_id": "UC1-T08",
+  "decision": "escalate",
+  "reason_code": [
+    "DUPLICATE"
+  ],
+  "amount": {
+    "value": 1413894.33,
+    "tolerance": 1.0
+  },
+  "must_cite": [
+    "INV-20634",
+    "PAY-9446"
+  ],
+  "needs_human": true,
+  "other_reasons": [
+    "GST_MISMATCH"
+  ]
+}

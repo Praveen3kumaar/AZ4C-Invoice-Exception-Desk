@@ -1,0 +1,16 @@
+{
+  "case_id": "UC1-T05",
+  "decision": "hold",
+  "reason_code": [
+    "PRICE_VARIANCE"
+  ],
+  "amount": {
+    "value": 61703.1,
+    "tolerance": 1.0
+  },
+  "must_cite": [
+    "INV-20495",
+    "INV-20495-L4"
+  ],
+  "needs_human": true
+}
