@@ -1,87 +1,60 @@
-# AI Usage Disclosure
+# How I used AI coding tools
 
-**Project:** AI Invoice Exception Desk — AZ4C Associate Engineer Assignment (Use Case 1)
+**Project:** AI Invoice Exception Desk — AZ4C Associate Engineer Assignment, Use Case 1
 
-## 1. AI coding assistant used
+## AI development assistant used
 
-I used **ChatGPT** as an AI coding and learning assistant while developing this project. I used it to:
+I used **ChatGPT** as a coding and learning assistant while developing this project. It helped me:
 
-- Understand the Accounts Payable invoice-matching workflow, dataset and assignment requirements.
-- Plan the Orchestrator, specialist-agent, Python-tool and SQLite architecture.
-- Draft and revise Python functions, Groq prompts, structured outputs and the Streamlit interface.
-- Troubleshoot Python/PowerShell execution, API rate limits, routing logic and evaluation issues.
-- Develop additional database-backed test scenarios and compare results against expected answers.
-- Review documentation and prepare explanations of the system's operation and limitations.
+- Understand the assignment requirements, invoice exception workflow and the supplied SQLite/data-pack structure.
+- Plan the Orchestrator, three specialist agents, Python tools, evidence-validation checks, Streamlit interface and mock ERP integration.
+- Draft and improve Python functions, Groq prompts, test utilities and project documentation.
+- Debug environment setup, SQL/data access, API issues, dynamic agent routing, evaluation logic and incorrect specialist recommendations.
+- Create additional local test cases and a focused unit test for specialist-agent retry behavior.
 
-The submitted code was run and debugged locally. AI-generated suggestions were reviewed against the supplied data, actual program output and the assignment requirements. ChatGPT assisted with implementation; it was **not** used as a substitute for the runtime invoice database or as an authority for final invoice decisions.
+I used **ChatGPT for development assistance**, not as the runtime invoice decision engine.
 
-## 2. LLM used at runtime
+## Runtime AI model and its role
 
-The application uses **`openai/gpt-oss-120b` through the Groq API**. The model is accessed remotely; no model training, fine-tuning or local model hosting is performed.
+The application calls **`openai/gpt-oss-120b` through the Groq API** for inference. The model is not hosted or trained locally.
 
-The runtime model supports two roles:
+- The **Orchestrator LLM** examines an invoice summary and Python precheck findings and proposes which specialists should investigate.
+- The selected **Matching, Duplicate and Risk AI agents** interpret results from their Python evidence tools and return structured recommendations and explanations.
+- **Python** determines mandatory specialist coverage, validates agent findings, applies AP policy priority, assembles output fields and prevents unsupported automatic payment recommendations.
 
-1. **Orchestrator routing:** receives an invoice summary and verified Python precheck findings, then proposes which specialist AI agents should investigate.
-2. **Specialist interpretation:** selected Matching, Duplicate and/or Risk Agents receive tool-generated findings and produce structured recommendations and human-readable explanations.
+The LLM does not connect directly to the SQLite database or authorize live payments. It receives relevant evidence assembled by the program.
 
-The Groq integration is centralized in `llm_client.py`, which handles structured JSON-oriented requests, response checking, retries and model-call logging.
+## What I checked or changed myself
 
-## 3. How routing and decisions are controlled
+I ran the project locally and reviewed the actual tool outputs, agent selections, final JSON results and mock ERP files. In particular:
 
-The system uses **hybrid, evidence-driven dynamic routing**:
+1. **Changed fixed routing to dynamic routing:** An early implementation called all three AI specialists for every invoice. I updated the design so the three **Python prechecks** always run, while the LLM calls only the specialist(s) relevant to the case. A Python routing guard still adds any specialists required by detected exceptions.
+2. **Corrected the local evaluator:** The earlier scorer incorrectly assumed all three AI specialists must always execute. I updated it to evaluate the dynamically selected agents while retaining comparisons of decisions, reason codes, amounts, citations and human-review flags.
+3. **Implemented and verified evidence-based specialist retries:** When a specialist's answer contradicts verified tool evidence, the Orchestrator retries that specialist **once**, validates its second answer, and safely escalates if it remains incorrect. I ran **two simulated unit tests**: one in which the second answer corrected the mistake and one in which both answers were wrong. **Both passed.**
+4. **Reran the full test suite:** On **November 1, 2026**, after the retry change, `python -m app eval --cases tests/cases` passed **13/13 known local cases** with a **100.0% local score**; `python validate_schema.py` passed **13/13 outputs** with zero schema failures.
+5. **Checked operational outputs:** I verified local model-call logging, confirmed log exclusion from Git, ran a HOLD scenario, inspected the draft correction notice, and inspected mock ERP records for PAY, HOLD and ESCALATE. I checked that unchanged repeat decisions are deliberately not appended twice.
+6. **Reviewed repository safety:** I kept `.env`, API secrets, supplied data-pack files, local logs and generated mock outputs out of the committed source files.
 
-1. Python retrieves the invoice and runs all three deterministic prechecks: matching, duplicate and risk.
-2. The Groq Orchestrator proposes a specialist-agent plan using the verified findings.
-3. A Python routing guard includes every specialist required by detected exceptions. The LLM may suggest an additional specialist but cannot suppress a mandatory one.
-4. Only the selected specialist LLM agents execute. A clean invoice generally uses one review specialist rather than calling all three.
-5. Selected agents' recommendations are checked against fresh deterministic tool evidence.
-6. Python applies the Accounts Payable policy, exception priority and human-review rules to determine the final `pay`, `hold` or `escalate` recommendation.
+## What the AI suggested versus what governs the decision
 
-**The LLM does not independently calculate authoritative invoice amounts, modify purchasing records, or authorize payments.** Deterministic checks and policy rules remain the source of truth for financial decisions.
+ChatGPT helped write and troubleshoot the code, but its suggestions were checked through local execution, expected-answer comparisons and JSON Schema validation. At runtime, Groq model recommendations are **not** treated as authoritative financial facts. Python tools establish evidence from the supplied dataset and signed agreements; the Orchestrator checks agent outputs against that evidence before the final decision.
 
-## 4. Evidence sources and tools
+The system uses **hybrid evidence-driven routing**: the LLM proposes a specialist plan, while deterministic Python safeguards ensure relevant exceptions are investigated. The retry mechanism re-calls a specialist with its existing prompt; it does **not** currently provide custom corrective feedback in a revised prompt.
 
-Python tools read the supplied SQLite database and local company documents, including AP policy and signed vendor price agreements. The tools assess:
+## Logging and error handling
 
-- Invoice, purchase-order and goods-receipt matching
-- Quantity shortages and price tolerance
-- Effective signed vendor price revisions
-- Duplicate invoices and recorded payments
-- GST rates and invoice tax totals
-- Blocked-vendor and recent bank-change risks
+`llm_client.py` writes local model-call metadata to `code/llm_calls.jsonl`, including timestamp, model, status, token usage and duration. The file is **not committed**. It is intended for development troubleshooting and does not explicitly attribute calls to a named agent. Failed or malformed AI responses are handled through API/response logic and Orchestrator checks; unresolved specialist errors lead to escalation rather than unsupported payment.
 
-The model receives relevant tool evidence as prompt context; it does not directly query or alter the SQLite database.
+## Testing boundaries and limitations
 
-## 5. Validation and testing
+- The **13/13, 100%** figure is the project's **local** evaluation against known cases; it is **not** the company's hidden-test result or a guarantee of repeatability under all API conditions.
+- The service depends on Groq API availability and rate limits; earlier development logs include failed calls.
+- The application works with invoice IDs in the supplied dataset and does not extract arbitrary new scanned invoices or PDFs.
+- Only the **CLI `run` path** writes mock ERP decisions. Streamlit is a display/review interface.
+- The ERP records and hold notices are **local simulations**. No payment is released and no actual email is sent.
+- Part B interactive approvals, restartable runs, concurrent agent execution, and Part C production features are **not implemented**.
+- The supplied vendor covering-email collection is not claimed as a comprehensive automated email-processing workflow.
 
-I tested the application on **13 locally available cases**: five supplied examples and eight additional database-backed cases. The additional cases cover individual exceptions, duplicate payments and combinations of exceptions that test company-policy reason priority.
+## Responsibility
 
-After implementing dynamic routing, a fresh local evaluation on **October 31, 2026** produced:
-
-- **13/13 local cases passing**
-- **100.0% local evaluation score**, recorded in `code/tests/score.json`
-- **13/13 JSON outputs passing schema validation**, with no failures
-
-These results reflect the project's local scoring logic and known cases. They do **not** represent results from AZ4C's hidden evaluator or guarantee identical performance under different API conditions.
-
-## 6. Debugging and reliability measures
-
-During development, ChatGPT helped identify and correct an important design issue: the original Orchestrator called all three LLM specialists for every invoice, even when it claimed to select them dynamically. This was changed so all three **Python safety checks** remain mandatory, but only the needed **LLM agents** execute.
-
-The local evaluator also initially required all three agent outputs and therefore returned zero for the dynamically routed runs. The evaluator was updated to validate the agents actually selected and preserve the existing business-decision, amount, citation and human-review comparisons. The revised application was then rerun and validated.
-
-API retries, structured-response validation, call logging, explicit evidence checks and fail-safe escalation reduce the chance that a bad LLM response becomes an unsupported payment recommendation.
-
-## 7. Boundaries and limitations
-
-- AI routing and wording may vary between model calls.
-- All required Python evidence checks run regardless of LLM routing.
-- Groq API availability and rate limits can affect execution.
-- The app investigates invoices present in the supplied dataset; it does not ingest arbitrary new invoice PDFs.
-- Streamlit is a review interface; CLI-side ERP status updates and correction notices are **mock outputs**.
-- A real interactive human approval/pause/resume mechanism (Parts B/C) is not implemented.
-- No live payment execution or real vendor email transmission is performed.
-
-## 8. Disclosure and responsibility
-
-ChatGPT was used for code drafting, debugging, reasoning and documentation. I reviewed the implementation by running it locally, examining evidence and outputs, updating tests, and validating the resulting JSON. I take responsibility for the submitted project and for explaining its design, safeguards and limitations.
+ChatGPT assisted with code drafts, reasoning, test design and documentation. I reviewed and revised the implementation, executed tests locally, examined outputs, corrected the routing and retry logic, and take responsibility for understanding and explaining the submitted work and its limitations.
