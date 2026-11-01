@@ -1,4 +1,6 @@
 
+
+
 import json
 
 from matching_tool import check_three_way_match
@@ -235,33 +237,71 @@ Example:
     print("LLM requested agents:", requested_agents)
     print("Final selected agents:", selected_agents)
 
-    # Step 5: Execute only the selected AI specialists.
+    # Step 5: Run selected AI specialists and validate their answers.
+    # Retry an agent once if its result disagrees with Python evidence.
+    # The second answer is independently validated; it is never trusted blindly.
     results = []
+    evidence_errors = []
 
     for agent_name in selected_agents:
-        try:
-            result = AGENTS[agent_name](invoice_id)
-            results.append(result)
+        final_result = None
+        agent_errors = []
 
-        except Exception as error:
-            print(f"{agent_name} agent failed: {error}")
+        for attempt in range(1, 3):
+            try:
+                result = AGENTS[agent_name](invoice_id)
+            except Exception as error:
+                print(f"{agent_name} attempt {attempt} failed: {error}")
+                result = {
+                    "agent": agent_name,
+                    "invoice_id": invoice_id,
+                    "recommendation": "REVIEW",
+                    "reason": "Agent failed during execution"
+                }
 
-            results.append({
-                "agent": agent_name,
-                "invoice_id": invoice_id,
-                "recommendation": "REVIEW",
-                "reason": "Agent failed during execution"
-            })
+            if not isinstance(result, dict):
+                agent_errors = [f"{agent_name}: Response is not a JSON object"]
+                result = {
+                    "agent": agent_name,
+                    "invoice_id": invoice_id,
+                    "recommendation": "REVIEW",
+                    "reason": "Invalid agent response format"
+                }
+            else:
+                # Validate the response against fresh deterministic tool evidence.
+                try:
+                    agent_errors = validate_agent_evidence(invoice_id, [result])
+                except Exception as error:
+                    agent_errors = [f"{agent_name}: Validation failed: {error}"]
 
-    # Step 6: Validate selected AI outputs.
-    try:
-        evidence_errors = validate_agent_evidence(
-            invoice_id,
-            results
-        )
+                # REVIEW is not an acceptable completed investigation.
+                if result.get("recommendation") == "REVIEW":
+                    agent_errors.append(f"{agent_name}: Agent requires review")
 
-    except Exception as error:
-        evidence_errors = [str(error)]
+                # Reject a missing or incorrect agent identity.
+                if result.get("agent") != agent_name:
+                    agent_errors.append(
+                        f"{agent_name}: Unexpected agent identity "
+                        f"{result.get('agent')}"
+                    )
+
+            final_result = result
+
+            if not agent_errors:
+                if attempt > 1:
+                    print(f"{agent_name}: Corrected answer accepted on retry.")
+                break
+
+            if attempt == 1:
+                print(
+                    f"{agent_name}: Invalid response; retrying once. "
+                    f"Details: {agent_errors}"
+                )
+            else:
+                print(f"{agent_name}: Retry failed; escalating safely.")
+
+        results.append(final_result)
+        evidence_errors.extend(agent_errors)
 
     # An unavailable or unrecognized tool result is unsafe.
     valid_statuses = {
