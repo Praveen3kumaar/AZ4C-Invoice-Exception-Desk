@@ -105,7 +105,7 @@ For example:
 | INV-20339 | Duplicate + Risk | ESCALATE |
 | INV-20541 | Duplicate + Risk | ESCALATE |
 
-The architecture diagram is available in [docs/architecture.md](docs/architecture.md).
+The architecture diagram is available in [docs/architecture.md](code/docs/architecture.md).
 
 ## Tools
 
