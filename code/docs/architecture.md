@@ -1,43 +1,41 @@
 # Invoice Exception Desk — Architecture
 
-The runtime uses hybrid dynamic routing: mandatory deterministic checks establish evidence, while a Groq LLM proposes relevant specialist AI agents. Python routing safety rules prevent critical exception areas from being skipped.
+The application uses **hybrid dynamic routing**. All three **Python evidence checks** run for every valid invoice; only the **AI specialist agents selected for that invoice** run. A Python safety guard ensures the AI routing proposal cannot skip a specialist required by detected exceptions.
 
 ```mermaid
 flowchart TD
-    U[User: Streamlit or CLI case] --> RB[Result Builder]
-    RB --> OR[Orchestrator]
-    OR --> IT[Invoice Tool]
-    IT --> DB[(SQLite: ap.sqlite)]
-    OR --> PC[Mandatory Python prechecks]
-    PC --> MT[Matching Tool]
-    PC --> DT[Duplicate Tool]
-    PC --> RT[Risk Tool]
-    MT --> AT[Agreement Tool]
-    MT --> DB
-    DT --> DB
-    RT --> DB
-    AT --> DOC[Signed price agreements]
-    PC --> RL[Groq: routing proposal]
-    RL --> G[Python routing safety guard]
-    PC --> G
-    G --> MA[Matching Agent, if selected]
-    G --> DA[Duplicate Agent, if selected]
-    G --> RA[Risk Agent, if selected]
-    MA --> MT
-    DA --> DT
-    RA --> RT
-    MA --> LLM[Groq model for specialist explanations]
-    DA --> LLM
-    RA --> LLM
-    MA --> V[Validate agent evidence and apply AP policy]
-    DA --> V
-    RA --> V
-    PC --> V
-    V --> RB
-    RB --> JSON[Structured JSON result]
-    JSON --> UI[Streamlit displays result]
-    JSON --> CLI[CLI run: save result]
-    CLI --> ERP[Local mock ERP and draft hold notice]
+    START["User input<br/>Streamlit invoice ID / CLI case JSON"]
+    BUILDER_IN["Result Builder<br/>Starts investigation"]
+    ORCH["Orchestrator"]
+    CHECKS["Mandatory Python prechecks<br/>Matching · Duplicate · Risk"]
+    DATA[("SQLite records<br/>and signed price agreements")]
+    ROUTE["Groq LLM<br/>Proposes agent routing"]
+    GUARD["Python routing safety guard<br/>Adds required specialists"]
+    AGENTS["Selected AI specialist agents<br/>Matching / Duplicate / Risk<br/>Use Python tools + Groq"]
+    VERIFY["Validate AI findings<br/>against Python evidence"]
+    POLICY["Apply AP policy priorities<br/>PAY / HOLD / ESCALATE"]
+    BUILDER_OUT["Result Builder<br/>Formats final JSON + citations"]
+    OUT["Structured JSON result"]
+    UI["Streamlit<br/>Displays recommendation"]
+    CLI["CLI<br/>Saves JSON + mock ERP status<br/>and draft hold notice, if applicable"]
+
+    START --> BUILDER_IN --> ORCH --> CHECKS
+    DATA -. "Read-only evidence" .-> CHECKS
+    CHECKS --> ROUTE --> GUARD --> AGENTS --> VERIFY
+    CHECKS --> GUARD
+    CHECKS --> VERIFY
+    VERIFY --> POLICY --> BUILDER_OUT --> OUT
+    OUT -->|Streamlit run| UI
+    OUT -->|CLI run| CLI
 ```
 
-The Mermaid diagram is rendered in GitHub Markdown. All three Python prechecks execute on each valid invoice; the specialist LLM agents execute only when selected. The mock ERP and notice output are local simulations, not real financial actions.
+## How to read the diagram
+
+1. **Entry:** Streamlit accepts an invoice ID, or the CLI reads a case JSON. Both call `result_builder.build_result()`.
+2. **Evidence:** The Orchestrator invokes the three mandatory deterministic tools: `matching_tool`, `duplicate_tool`, and `risk_tool`. They use `invoice_tool` / SQLite records; matching also checks applicable signed agreements through `agreement_tool`.
+3. **Dynamic routing:** Groq proposes a specialist-agent selection from the verified precheck findings. Python ensures specialists required by detected exceptions are included. Clean invoices still get a specialist review.
+4. **Specialists:** Only selected agents run. Each specialist calls its Python evidence tool and uses Groq to generate a structured recommendation and explanation.
+5. **Safety and policy:** The Orchestrator validates agent recommendations against Python evidence and applies the documented AP exception-priority rules. Unreliable findings fail safe to escalation.
+6. **Output:** `result_builder.py` formats JSON with the decision, reason, amount, citations, human-review flag, and trace ID. Streamlit displays it; the CLI saves a JSON result and writes simulated mock-ERP records and applicable draft notices.
+
+**Notes:** The two Result Builder boxes refer to **the same `result_builder.py` module** at the beginning and end of the investigation. The diagram simplifies the specialist agents' internal tool and Groq calls to keep the main control flow readable. No real payment is released and no vendor email is sent.
